@@ -1,65 +1,91 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
 
 export default function Home() {
+  const [styleName, setStyleName] = useState("");
+  const [list, setList] = useState<any[]>([]); // 存储款式列表
+  const [loading, setLoading] = useState(false);
+
+  // 1. 获取列表函数
+  const fetchStyles = async () => {
+    const res = await fetch("/api/list");
+    const data = await res.json();
+    if (Array.isArray(data)) setList(data);
+  };
+
+  // 2. 页面初次加载时读取数据
+  useEffect(() => {
+    fetchStyles();
+  }, []);
+
+  // 3. 提交处理
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const response = await fetch("/api/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ styleName }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setStyleName(""); // 清空输入框
+        await fetchStyles(); // 立即刷新列表，实现“实时”感
+      } else {
+        alert("保存失败: " + result.error);
+      }
+    } catch (error) {
+      alert("请求出错");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="p-10 max-w-xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">款式管理 MVP</h1>
+
+      {/* 输入表单 */}
+      <form onSubmit={handleSubmit} className="flex gap-2 mb-10">
+        <input
+          type="text"
+          value={styleName}
+          onChange={(e) => setStyleName(e.target.value)}
+          placeholder="输入新款式名称"
+          className="flex-1 border p-2 rounded"
+          required
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <button
+          type="submit"
+          disabled={loading}
+          className="bg-black text-white px-4 py-2 rounded disabled:bg-gray-400"
+        >
+          {loading ? "保存中..." : "添加款式"}
+        </button>
+      </form>
+
+      {/* 数据展示列表 */}
+      <div className="space-y-2">
+        <h2 className="text-lg font-semibold border-b pb-2">已存入的款式</h2>
+        {list.length === 0 && (
+          <p className="text-gray-400">暂无款式，快去添加吧！</p>
+        )}
+        {list.map((item) => (
+          <div
+            key={item.id}
+            className="flex justify-between items-center p-3 bg-gray-50 rounded border"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <span className="font-medium text-gray-800">{item.name}</span>
+            <span className="text-xs text-gray-400">
+              {new Date(item.created_at).toLocaleDateString()}
+            </span>
+          </div>
+        ))}
+      </div>
+    </main>
   );
 }
